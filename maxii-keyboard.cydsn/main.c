@@ -3,29 +3,37 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "project.h"
+
+#define PROBES 16
+
+static uint8 states[PROBES];
+
+static char buffer[16];
+
 
 int main(void)
 {
     UART_Start();
-    CyGlobalIntEnable; /* Enable global interrupts. */
+    CyGlobalIntEnable;
 
-    UART_PutString("Hello, world!\n");
+    UART_PutString("GO\r");
     
+    uint8 oldprobe = 0;
     for (;;)
     {
-        uint8 c = UART_GetChar();
-        switch (c)
-        {
-            case 0: /* nothing to read */
-                break;
+        uint8 probe = ProbeReg_Read();
+        if (probe == oldprobe)
+            continue;
+        oldprobe = probe;
+
+        if (probe == 0)
+            UART_PutString("\r");
             
-            default:
-            {
-                char buffer[16];
-                sprintf(buffer, "%d ", c);
-                UART_PutString(buffer);
-            }
-        }
+        uint8 sense = SenseReg_Read();
+        sprintf(buffer, "%02x ", sense);
+        UART_PutString(buffer);
     }
 }
