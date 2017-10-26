@@ -1,26 +1,31 @@
-/* ========================================
- *
- * Copyright YOUR COMPANY, THE YEAR
- * All Rights Reserved
- * UNPUBLISHED, LICENSED SOFTWARE.
- *
- * CONFIDENTIAL AND PROPRIETARY INFORMATION
- * WHICH IS THE PROPERTY OF your company.
- *
- * ========================================
-*/
+/* maxii-keyboard firmware
+ * (C) 2017 David Given
+ */
+
+#include <stdio.h>
 #include "project.h"
 
 int main(void)
 {
+    UART_Start();
     CyGlobalIntEnable; /* Enable global interrupts. */
 
-    /* Place your initialization/startup code here (e.g. MyInst_Start()) */
-
-    for(;;)
+    UART_PutString("Hello, world!\n");
+    
+    for (;;)
     {
-        /* Place your application code here. */
+        uint8 c = UART_GetChar();
+        switch (c)
+        {
+            case 0: /* nothing to read */
+                break;
+            
+            default:
+            {
+                char buffer[16];
+                sprintf(buffer, "%d ", c);
+                UART_PutString(buffer);
+            }
+        }
     }
 }
-
-/* [] END OF FILE */
