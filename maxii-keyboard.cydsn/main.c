@@ -46,7 +46,7 @@ void SenseInterrupt_Interrupt_InterruptCallback(void)
                 LedReg_Write(true);
         }
     }
-                    
+
     senses[probe] = sense;
 }
 
