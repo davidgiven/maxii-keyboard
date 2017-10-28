@@ -21,7 +21,7 @@ static volatile int readptr = 0;
 static volatile int writeptr = 0;
 static uint8 senses[16] = {};
 
-void SenseInterrupt_Interrupt_InterruptCallback(void)
+static CY_ISR(ProbeInterrupt)
 {
     LedReg_Write(0);
 
@@ -54,7 +54,8 @@ int main(void)
 {
     LedReg_Write(1);
     UART_Start();
-    SenseInterrupt_Start();
+    ProbeCounter_Start();
+    ProbeInterrupt_StartEx(&ProbeInterrupt);
     CyGlobalIntEnable;
 
     UART_PutString("GO\r");
