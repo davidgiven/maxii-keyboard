@@ -21,10 +21,10 @@ static volatile int readptr = 0;
 static volatile int writeptr = 0;
 static uint8 senses[16] = {};
 
+static uint8 Keyboard_Data[8] = {};
+
 static CY_ISR(ProbeInterrupt)
 {
-    LedReg_Write(0);
-
     uint8 probe = ProbeReg_Read();
     uint8 sense = SenseReg_Read();
     uint8 changed = senses[probe] ^ sense;
@@ -50,14 +50,26 @@ static CY_ISR(ProbeInterrupt)
     senses[probe] = sense;
 }
 
+static void usbwait(void)
+{
+    while (!USBFS_bGetEPAckState(1))
+        ;
+}
+
 int main(void)
 {
     LedReg_Write(1);
     UART_Start();
     ProbeCounter_Start();
     ProbeInterrupt_StartEx(&ProbeInterrupt);
+    USBFS_Start(0, USBFS_DWR_VDDD_OPERATION);
+    USBFS_EnableOutEP(2);
     CyGlobalIntEnable;
 
+    UART_PutString("Waiting for USB\r");
+    while (!USBFS_bGetConfiguration())
+        ;
+    USBFS_LoadInEP(1, Keyboard_Data, 8);
     UART_PutString("GO\r");
 
     for (;;)
@@ -68,6 +80,15 @@ int main(void)
         char buffer[32];
         struct queue_entry* entry = &queue[readptr];
         sprintf(buffer, "x=%d y=%d o=%d\r", entry->x, entry->y, entry->status);
+        
+        usbwait();
+        Keyboard_Data[2] = 20;
+        USBFS_LoadInEP(1, Keyboard_Data, 8);
+
+        usbwait();
+        Keyboard_Data[2] = 0;
+        USBFS_LoadInEP(1, Keyboard_Data, 8);
+        
         UART_PutString(buffer);
         LedReg_Write(0);
         
