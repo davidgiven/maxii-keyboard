@@ -52,45 +52,47 @@ static CY_ISR(ProbeInterrupt)
 
 static void usbwait(void)
 {
-    while (!USBFS_bGetEPAckState(1))
+    while (!USBFS_GetEPAckState(1))
         ;
 }
 
 int main(void)
 {
+    CyGlobalIntEnable;
     LedReg_Write(1);
     UART_Start();
     ProbeCounter_Start();
     ProbeInterrupt_StartEx(&ProbeInterrupt);
     USBFS_Start(0, USBFS_DWR_VDDD_OPERATION);
-    USBFS_EnableOutEP(2);
-    CyGlobalIntEnable;
 
-    UART_PutString("Waiting for USB\r");
-    while (!USBFS_bGetConfiguration())
-        ;
-    USBFS_LoadInEP(1, Keyboard_Data, 8);
     UART_PutString("GO\r");
+    LedReg_Write(0);
 
     for (;;)
     {
         while (readptr == writeptr)
-            ;
+        {
+            if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
+            {
+                UART_PutString("Waiting for USB configuration\r");
+                while (!USBFS_GetConfiguration())
+                    ;
+                USBFS_EnableOutEP(2);
+                UART_PutString("USB configuration done\r");
+            }
+        }
 
         char buffer[32];
         struct queue_entry* entry = &queue[readptr];
         sprintf(buffer, "x=%d y=%d o=%d\r", entry->x, entry->y, entry->status);
-        
-        usbwait();
-        Keyboard_Data[2] = 20;
-        USBFS_LoadInEP(1, Keyboard_Data, 8);
-
-        usbwait();
-        Keyboard_Data[2] = 0;
-        USBFS_LoadInEP(1, Keyboard_Data, 8);
-        
         UART_PutString(buffer);
         LedReg_Write(0);
+        
+        UART_PutString("USB poke\r");
+        Keyboard_Data[2] = entry->status ? 20 : 0;
+        USBFS_LoadInEP(1, Keyboard_Data, 8);
+        usbwait();
+        UART_PutString("USB ready\r");
         
         readptr = (readptr+1) & (QUEUE_SIZE-1);
     }
