@@ -105,82 +105,76 @@ static CY_ISR(ProbeInterrupt)
     read_keypresses();
 }
 
-static void usbwait(void)
-{
-    while (!USBFS_GetEPAckState(1))
-        ;
-}
-
 int main(void)
 {
     CyGlobalIntEnable;
     LedReg_Write(1);
-    //UART_Start();
+    UART_Start();
     ProbeCounter_Start();
     ProbeInterrupt_StartEx(&ProbeInterrupt);
     USBFS_Start(0, USBFS_DWR_VDDD_OPERATION);
 
-    //UART_PutString("GO\r");
+    UART_PutString("GO\r");
     LedReg_Write(0);
 
     for (;;)
     {
-        while (readptr == writeptr)
+        if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
         {
-            if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
-            {
-                //UART_PutString("Waiting for USB configuration\r");
-                while (!USBFS_GetConfiguration())
-                    ;
-                USBFS_EnableOutEP(2);
-                //UART_PutString("USB configuration done\r");
-            }
+            UART_PutString("Waiting for USB configuration\r");
+            while (!USBFS_GetConfiguration())
+                ;
+            USBFS_EnableOutEP(2);
+            USBFS_LoadInEP(1, Keyboard_Data, 8);
+            UART_PutString("USB configuration done\r");
         }
 
-        char buffer[32];
-        struct queue_entry* entry = &queue[readptr];
-        sprintf(buffer, "k=%d o=%d m=%02x\r", entry->keycode, entry->pressed, (uint8)~ModifierReg_Read());
-        //UART_PutString(buffer);
-        LedReg_Write(0);
-        
-        if (entry->pressed)
+        if ((readptr != writeptr) && USBFS_GetEPAckState(1))
         {
-            switch (entry->keycode)
-            {
-                case KEY_LeftControl: modifiers |= MOD_LeftControl; break;
-                case KEY_LeftShift:   modifiers |= MOD_LeftShift;   break;
-                case KEY_LeftAlt:     modifiers |= MOD_LeftAlt;     break;
-                case KEY_LeftGUI:     modifiers |= MOD_LeftGui;     break;
-            }
+            char buffer[32];
+            struct queue_entry* entry = &queue[readptr];
+            sprintf(buffer, "k=%d o=%d m=%02x\r", entry->keycode, entry->pressed, (uint8)~ModifierReg_Read());
+            //UART_PutString(buffer);
+            LedReg_Write(0);
             
-            for (int i=2; i<8; i++)
-                if (Keyboard_Data[i] == 0)
+            if (entry->pressed)
+            {
+                switch (entry->keycode)
                 {
-                    Keyboard_Data[i] = entry->keycode;
-                    break;
+                    case KEY_LeftControl: modifiers |= MOD_LeftControl; break;
+                    case KEY_LeftShift:   modifiers |= MOD_LeftShift;   break;
+                    case KEY_LeftAlt:     modifiers |= MOD_LeftAlt;     break;
+                    case KEY_LeftGUI:     modifiers |= MOD_LeftGui;     break;
                 }
-        }
-        else
-        {
-            switch (entry->keycode)
-            {
-                case KEY_LeftControl: modifiers &= ~MOD_LeftControl; break;
-                case KEY_LeftShift:   modifiers &= ~MOD_LeftShift;   break;
-                case KEY_LeftAlt:     modifiers &= ~MOD_LeftAlt;     break;
-                case KEY_LeftGUI:     modifiers &= ~MOD_LeftGui;     break;
+                
+                for (int i=2; i<8; i++)
+                    if (Keyboard_Data[i] == 0)
+                    {
+                        Keyboard_Data[i] = entry->keycode;
+                        break;
+                    }
             }
-            
-            for (int i=2; i<8; i++)
-                if (Keyboard_Data[i] == entry->keycode)
+            else
+            {
+                switch (entry->keycode)
                 {
-                    Keyboard_Data[i] = 0;
-                    break;
-                }            
+                    case KEY_LeftControl: modifiers &= ~MOD_LeftControl; break;
+                    case KEY_LeftShift:   modifiers &= ~MOD_LeftShift;   break;
+                    case KEY_LeftAlt:     modifiers &= ~MOD_LeftAlt;     break;
+                    case KEY_LeftGUI:     modifiers &= ~MOD_LeftGui;     break;
+                }
+                
+                for (int i=2; i<8; i++)
+                    if (Keyboard_Data[i] == entry->keycode)
+                    {
+                        Keyboard_Data[i] = 0;
+                        break;
+                    }            
+            }
+            Keyboard_Data[0] = modifiers;
+            USBFS_LoadInEP(1, Keyboard_Data, 8);
+           
+            readptr = (readptr+1) & (QUEUE_SIZE-1);
         }
-        Keyboard_Data[0] = modifiers;
-        USBFS_LoadInEP(1, Keyboard_Data, 8);
-        usbwait();
-       
-        readptr = (readptr+1) & (QUEUE_SIZE-1);
     }
 }
