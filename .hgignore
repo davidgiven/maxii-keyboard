@@ -1,0 +1,15 @@
+CortexM3
+Generated_Source
+codegentemp
+BUILD.log
+\.dg$
+\.cycdx$
+\.cyfit$
+\.rpt$
+\.svd$
+_timing\.html$
+Export
+\.orig$
+Archive
+ComponentUpdateLog.txt
+
