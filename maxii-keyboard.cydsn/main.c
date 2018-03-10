@@ -8,6 +8,7 @@
 #include "project.h"
 #include "usbkeycodes.h"
 
+#define KEY_Magic 255
 #define QUEUE_SIZE 32
 
 struct queue_entry
@@ -67,18 +68,53 @@ static void read_modifiers(void)
     oldsense = sense;
 }
 
+static uint8 alt_keycode(uint8 normal_keycode)
+{
+    switch (normal_keycode)
+    {
+        case KEY_W: return KEY_Up;
+        case KEY_A: return KEY_Left;
+        case KEY_S: return KEY_Down;
+        case KEY_D: return KEY_Right;
+        case KEY_R: return KEY_PageUp;
+        case KEY_F: return KEY_PageDown;
+        case KEY_Q: return KEY_Home;
+        case KEY_E: return KEY_End;
+        case KEY_1: return KEY_F1;
+        case KEY_2: return KEY_F2;
+        case KEY_3: return KEY_F3;
+        case KEY_4: return KEY_F4;
+        case KEY_5: return KEY_F5;
+        case KEY_6: return KEY_F6;
+        case KEY_7: return KEY_F7;
+        case KEY_8: return KEY_F8;
+        case KEY_9: return KEY_F9;
+        case KEY_0: return KEY_F10;
+        
+        case KEY_LeftShift:
+        case KEY_RightShift:
+        case KEY_LeftAlt:
+        case KEY_RightAlt:
+        case KEY_LeftGUI:
+        case KEY_RightGUI:
+        case KEY_Menu:
+            return normal_keycode;
+    }
+    return 0;
+}
+        
 static void read_keypresses(void)
 {
     static const uint8 keycodes[9][8] = {
         { KEY_9, KEY_0,              KEY_LeftBracket,  KEY_Quote,     0,          KEY_P, KEY_Semicolon, KEY_Slash },
         { KEY_8, KEY_Minus,          KEY_RightBracket, KEY_NonUSHash, 0,          KEY_O, KEY_L,         KEY_Period },
         { KEY_7, KEY_Equals,         KEY_Delete,       KEY_Grave,     KEY_4,      KEY_I, KEY_K,         KEY_Comma },
-        { KEY_6, KEY_NonUSBackslash, KEY_Enter,        KEY_LeftGUI,   KEY_5,      KEY_U, KEY_J,         KEY_M },
-        { 0,     0,                  0,                KEY_Up,        KEY_Escape, KEY_Q, KEY_A,         KEY_Z },
-        { KEY_G, KEY_H,              0,                KEY_Right,     KEY_1,      KEY_W, KEY_S,         KEY_X },
+        { KEY_6, KEY_NonUSBackslash, KEY_Enter,        KEY_Magic,     KEY_5,      KEY_U, KEY_J,         KEY_M },
+        { 0,     0,                  0,                KEY_LeftAlt,   KEY_Escape, KEY_Q, KEY_A,         KEY_Z },
+        { KEY_G, KEY_H,              0,                KEY_Menu,      KEY_1,      KEY_W, KEY_S,         KEY_X },
         { KEY_T, KEY_B,              0,                KEY_Space,     KEY_2,      KEY_E, KEY_D,         KEY_C },
-        { KEY_Y, KEY_N,              0,                KEY_Left,      KEY_3,      KEY_R, KEY_F,         KEY_V },
-        { 0,     0,                  0,                KEY_Down,      0,          0,     0,             0 }
+        { KEY_Y, KEY_N,              0,                KEY_LeftGUI,   KEY_3,      KEY_R, KEY_F,         KEY_V },
+        { 0,     0,                  0,                KEY_RightAlt,  0,          0,     0,             0 }
     };
 
     static uint8 senses[16] = {};
@@ -137,42 +173,53 @@ int main(void)
             //UART_PutString(buffer);
             LedReg_Write(0);
             
-            if (entry->pressed)
-            {
-                switch (entry->keycode)
-                {
-                    case KEY_LeftControl: modifiers |= MOD_LeftControl; break;
-                    case KEY_LeftShift:   modifiers |= MOD_LeftShift;   break;
-                    case KEY_LeftAlt:     modifiers |= MOD_LeftAlt;     break;
-                    case KEY_LeftGUI:     modifiers |= MOD_LeftGui;     break;
-                }
-                
-                for (int i=2; i<8; i++)
-                    if (Keyboard_Data[i] == 0)
-                    {
-                        Keyboard_Data[i] = entry->keycode;
-                        break;
-                    }
-            }
+            static bool special_modifier = 0;
+            if (entry->keycode == KEY_Magic)
+                special_modifier = entry->pressed;
             else
             {
-                switch (entry->keycode)
+                if (special_modifier)
+                    entry->keycode = alt_keycode(entry->keycode);
+                if (entry->keycode)
                 {
-                    case KEY_LeftControl: modifiers &= ~MOD_LeftControl; break;
-                    case KEY_LeftShift:   modifiers &= ~MOD_LeftShift;   break;
-                    case KEY_LeftAlt:     modifiers &= ~MOD_LeftAlt;     break;
-                    case KEY_LeftGUI:     modifiers &= ~MOD_LeftGui;     break;
-                }
-                
-                for (int i=2; i<8; i++)
-                    if (Keyboard_Data[i] == entry->keycode)
+                    if (entry->pressed)
                     {
-                        Keyboard_Data[i] = 0;
-                        break;
-                    }            
+                        switch (entry->keycode)
+                        {
+                            case KEY_LeftControl: modifiers |= MOD_LeftControl; break;
+                            case KEY_LeftShift:   modifiers |= MOD_LeftShift;   break;
+                            case KEY_LeftAlt:     modifiers |= MOD_LeftAlt;     break;
+                            case KEY_LeftGUI:     modifiers |= MOD_LeftGui;     break;
+                        }
+                        
+                        for (int i=2; i<8; i++)
+                            if (Keyboard_Data[i] == 0)
+                            {
+                                Keyboard_Data[i] = entry->keycode;
+                                break;
+                            }
+                    }
+                    else
+                    {
+                        switch (entry->keycode)
+                        {
+                            case KEY_LeftControl: modifiers &= ~MOD_LeftControl; break;
+                            case KEY_LeftShift:   modifiers &= ~MOD_LeftShift;   break;
+                            case KEY_LeftAlt:     modifiers &= ~MOD_LeftAlt;     break;
+                            case KEY_LeftGUI:     modifiers &= ~MOD_LeftGui;     break;
+                        }
+                        
+                        for (int i=2; i<8; i++)
+                            if (Keyboard_Data[i] == entry->keycode)
+                            {
+                                Keyboard_Data[i] = 0;
+                                break;
+                            }            
+                    }
+                    Keyboard_Data[0] = modifiers;
+                    USBFS_LoadInEP(1, Keyboard_Data, 8);
+                }
             }
-            Keyboard_Data[0] = modifiers;
-            USBFS_LoadInEP(1, Keyboard_Data, 8);
            
             readptr = (readptr+1) & (QUEUE_SIZE-1);
         }
