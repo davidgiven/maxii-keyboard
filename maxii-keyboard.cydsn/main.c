@@ -42,7 +42,7 @@ static void read_modifiers(void)
 {
     static const uint8 keycodes[8] = {
         KEY_LeftShift,
-        KEY_LeftControl, 
+        KEY_Tab, 
         KEY_LeftAlt, 
         KEY_CapsLock, 
         0, 
@@ -90,6 +90,8 @@ static uint8 alt_keycode(uint8 normal_keycode)
         case KEY_8: return KEY_F8;
         case KEY_9: return KEY_F9;
         case KEY_0: return KEY_F10;
+        case KEY_Minus: return KEY_F11;
+        case KEY_Equals: return KEY_F12;
         
         case KEY_LeftShift:
         case KEY_RightShift:
@@ -108,13 +110,13 @@ static void read_keypresses(void)
     static const uint8 keycodes[9][8] = {
         { KEY_9, KEY_0,              KEY_LeftBracket,  KEY_Quote,     0,          KEY_P, KEY_Semicolon, KEY_Slash },
         { KEY_8, KEY_Minus,          KEY_RightBracket, KEY_NonUSHash, 0,          KEY_O, KEY_L,         KEY_Period },
-        { KEY_7, KEY_Equals,         KEY_Delete,       KEY_Grave,     KEY_4,      KEY_I, KEY_K,         KEY_Comma },
+        { KEY_7, KEY_Equals,         KEY_Insert,       KEY_Grave,     KEY_4,      KEY_I, KEY_K,         KEY_Comma },
         { KEY_6, KEY_NonUSBackslash, KEY_Enter,        KEY_Magic,     KEY_5,      KEY_U, KEY_J,         KEY_M },
         { 0,     0,                  0,                KEY_LeftAlt,   KEY_Escape, KEY_Q, KEY_A,         KEY_Z },
         { KEY_G, KEY_H,              0,                KEY_Menu,      KEY_1,      KEY_W, KEY_S,         KEY_X },
         { KEY_T, KEY_B,              0,                KEY_Space,     KEY_2,      KEY_E, KEY_D,         KEY_C },
         { KEY_Y, KEY_N,              0,                KEY_LeftGUI,   KEY_3,      KEY_R, KEY_F,         KEY_V },
-        { 0,     0,                  0,                KEY_RightAlt,  0,          0,     0,             0 }
+        { 0,     KEY_Delete,         KEY_Enter,        KEY_RightAlt,  0,          0,     0,             0 }
     };
 
     static uint8 senses[16] = {};
@@ -169,8 +171,8 @@ int main(void)
         {
             char buffer[32];
             struct queue_entry* entry = &queue[readptr];
-            sprintf(buffer, "k=%d o=%d m=%02x\r", entry->keycode, entry->pressed, (uint8)~ModifierReg_Read());
-            //UART_PutString(buffer);
+            //sprintf(buffer, "k=%d o=%d m=%02x\r", entry->keycode, entry->pressed, (uint8)~ModifierReg_Read());
+            UART_PutString(buffer);
             LedReg_Write(0);
             
             static bool special_modifier = 0;
