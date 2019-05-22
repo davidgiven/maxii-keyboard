@@ -81,28 +81,7 @@ int main(void)
     USBFS_Start(0, USBFS_DWR_POWER_OPERATION);
 
     LCD_Init();
-    CyPins_SetPin(LED_0);
     
-    for (;;)
-    {
-        if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
-        {
-            LCD_Write("Waiting for USB");
-            while (!USBFS_GetConfiguration())
-                ;
-            
-            LCD_Write("Setting up USB");
-            USBFS_CDC_Init();
-            USBFS_EnableOutEP(4);
-            USBFS_LoadInEP(1, Keyboard_Data, 8);
-            LCD_Write("Ready");
-        }
-        
-        USBFS_PutChar('q');
-        CyDelay(200);
-    }
-
-    #if 0
     struct key
     {
         int pin;
@@ -131,44 +110,67 @@ int main(void)
     };
     #define PINS (sizeof(keyboard_pins)/sizeof(*keyboard_pins))
     
-    LCD_Write("mash keyboard");
+    struct kbdstate
+    {
+        bool pressed[PINS][PINS];
+    };
+    
+    static struct kbdstate oldstate = {};
+    static struct kbdstate newstate = {};
+    
     for (;;)
     {
-        for (int writing=0; writing<PINS; writing++)
+        if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
         {
-            static char buf[17];
-            char* p = buf;
+            LCD_Write("Waiting for USB");
+            while (!USBFS_GetConfiguration())
+                ;
             
-            *p++ = keyboard_pins[writing].code;
-            *p++ = ':';
-            
-            CyPins_SetPin(keyboard_pins[writing].pin);
-            for (int reading=0; reading<PINS; reading++)
+            LCD_Write("Setting up USB");
+            USBFS_CDC_Init();
+            USBFS_EnableOutEP(4);
+            USBFS_LoadInEP(1, Keyboard_Data, 8);
+            LCD_Write("Ready");
+        }
+        
+        for (unsigned y=0; y<PINS; y++)
+        {
+            CyPins_SetPin(keyboard_pins[y].pin);
+            for (unsigned x=0; x<PINS; x++)
             {
-                if (reading == writing)
+                if (x == y)
                     continue;
-                if (CyPins_ReadPin(keyboard_pins[reading].pin))
-                {
-                    *p++ = keyboard_pins[reading].code;
-
-                    #if 0
-                    while (CyPins_ReadPin(keyboard_pins[reading]))
-                        ;
-                    
-                    LCD_Write("nothing pressed");
-                    #endif
-                }
+                
+                newstate.pressed[y][x] = CyPins_ReadPin(keyboard_pins[x].pin);
             }
-            
-            *p = '\0';
-            if (strlen(buf) > 2)
+            CyPins_ClearPin(keyboard_pins[y].pin);
+        }
+        
+        if (memcmp(&newstate, &oldstate, sizeof(struct kbdstate)) != 0)
+        {
+            CyPins_SetPin(LED_0);
+            while (!USBFS_CDCIsReady())
+                ;
+            USBFS_PutString("\r\nchanged\r\n");
+            for (unsigned y=0; y<PINS; y++)
             {
-                LCD_Write(buf);
-                CyDelay(100);
+                static char buffer[80];
+                char* p = buffer;
+                
+                *p++ = keyboard_pins[y].code;
+                *p++ = ':';
+                for (unsigned x=0; x<PINS; x++)
+                    *p++ = newstate.pressed[y][x] ? keyboard_pins[x].code : '.';
+                *p++ = '\n';
+                *p++ = '\r';
+                *p++ = 0;
+                while (!USBFS_CDCIsReady())
+                    ;
+                USBFS_PutString(buffer);
             }
             
-            CyPins_ClearPin(keyboard_pins[writing].pin);
+            oldstate = newstate;
+            CyPins_ClearPin(LED_0);
         }
     }
-    #endif
 }
