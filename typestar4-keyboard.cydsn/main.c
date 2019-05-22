@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include "project.h"
 
+static uint8 Keyboard_Data[8] = {};
+
 static void lcd_write_byte(bool rs, uint8_t data)
 {
     CyPins_SetPin(LCDCTRL_E);
@@ -27,7 +29,7 @@ static void LCD_Clear(void)
 
 static void LCD_Init(void)
 {
-    CyDelay(100);
+    CyDelay(200);
 
     lcd_write_byte(false, 0x38); /* FUNCTION_SET + 8BIT */
     CyDelay(5);
@@ -76,15 +78,97 @@ static void LCD_Write(const char* s)
 int main(void)
 {
     CyGlobalIntEnable; /* Enable global interrupts. */
+    USBFS_Start(0, USBFS_DWR_POWER_OPERATION);
 
     LCD_Init();
+    CyPins_SetPin(LED_0);
     
-    char buf[16];
-    uint8_t i = 100;
     for (;;)
     {
-        snprintf(buf, sizeof(buf), "Hello world!%d", i++);
-        LCD_Write(buf);
-        CyDelay(100);
+        if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
+        {
+            LCD_Write("Waiting for USB");
+            while (!USBFS_GetConfiguration())
+                ;
+            
+            LCD_Write("Setting up USB");
+            USBFS_CDC_Init();
+            USBFS_EnableOutEP(4);
+            USBFS_LoadInEP(1, Keyboard_Data, 8);
+            LCD_Write("Ready");
+        }
+        
+        USBFS_PutChar('q');
+        CyDelay(200);
     }
+
+    #if 0
+    struct key
+    {
+        int pin;
+        char code;
+    };
+    
+    static const struct key keyboard_pins[] =
+    {
+        { KBD_0, 'a' },
+        { KBD_1, 'b' },
+        { KBD_2, 'c' }, // return
+        { KBD_3, 'd' },
+        { KBD_4, 'e' },
+        { KBD_5, 'f' },
+        { KBD_6, 'g' }, // always on?
+        { KBD_7, 'h' }, // shift
+        { KBD_8, 'i' },
+        { KBD_9, 'j' },
+        { KBD_10, 'k' },
+        { KBD_11, 'l' }, // repeat
+        { KBD_12, 'm' },
+        { KBD_13, 'n' },
+        { KBD_14, 'o' },
+        { KBD_15, 'p' },
+        { KBD_16, 'q' },
+    };
+    #define PINS (sizeof(keyboard_pins)/sizeof(*keyboard_pins))
+    
+    LCD_Write("mash keyboard");
+    for (;;)
+    {
+        for (int writing=0; writing<PINS; writing++)
+        {
+            static char buf[17];
+            char* p = buf;
+            
+            *p++ = keyboard_pins[writing].code;
+            *p++ = ':';
+            
+            CyPins_SetPin(keyboard_pins[writing].pin);
+            for (int reading=0; reading<PINS; reading++)
+            {
+                if (reading == writing)
+                    continue;
+                if (CyPins_ReadPin(keyboard_pins[reading].pin))
+                {
+                    *p++ = keyboard_pins[reading].code;
+
+                    #if 0
+                    while (CyPins_ReadPin(keyboard_pins[reading]))
+                        ;
+                    
+                    LCD_Write("nothing pressed");
+                    #endif
+                }
+            }
+            
+            *p = '\0';
+            if (strlen(buf) > 2)
+            {
+                LCD_Write(buf);
+                CyDelay(100);
+            }
+            
+            CyPins_ClearPin(keyboard_pins[writing].pin);
+        }
+    }
+    #endif
 }
