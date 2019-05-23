@@ -255,7 +255,7 @@
       <Data key="ad27606d-0075-4b8b-bdfa-e8077b1f84e1" value="LCDDATA_PINS" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/8b77a6c4-10a0-4390-971c-672353e2a49c" value="USBFS_Dm" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/618a72fc-5ddd-4df5-958f-a3d55102db42" value="USBFS_Dp" />
-      <Data key="e74dc5bd-e5f2-4051-aa7c-e553b951729e" value="LED_Pin" />
+      <Data key="e74dc5bd-e5f2-4051-aa7c-e553b951729e" value="LED" />
       <Data key="e851a3b9-efb8-48be-bbb8-b303b216c393" value="LCDCTRL" />
     </Group>
   </Group>
@@ -3360,10 +3360,10 @@
         <Data key="Port Format" value="2,7" />
       </Group>
       <Group key="5">
-        <Data key="Port Format" value="12,7" />
+        <Data key="Port Format" value="3,3" />
       </Group>
       <Group key="6">
-        <Data key="Port Format" value="12,6" />
+        <Data key="Port Format" value="3,1" />
       </Group>
       <Group key="7">
         <Data key="Port Format" value="12,5" />
@@ -3387,7 +3387,7 @@
         <Data key="Port Format" value="15,5" />
       </Group>
       <Group key="14">
-        <Data key="Port Format" value="15,4" />
+        <Data key="Port Format" value="3,0" />
       </Group>
       <Group key="15">
         <Data key="Port Format" value="15,3" />
