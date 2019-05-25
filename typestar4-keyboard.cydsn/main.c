@@ -82,6 +82,7 @@ int main(void)
 
     LCD_Init();
     
+#if 0
     struct key
     {
         int pin;
@@ -97,16 +98,15 @@ int main(void)
         { KBD_4, 'e' },
         { KBD_5, 'f' },
         { KBD_6, 'g' }, // always on?
-        { KBD_7, 'h' }, // shift
+        { KBD_7, 'h' },
         { KBD_8, 'i' },
         { KBD_9, 'j' },
-        { KBD_10, 'k' },
-        { KBD_11, 'l' }, // repeat
+        { KBD_10, 'k' }, // repeat
+        { KBD_11, 'l' },
         { KBD_12, 'm' },
         { KBD_13, 'n' },
         { KBD_14, 'o' },
         { KBD_15, 'p' },
-        { KBD_16, 'q' },
     };
     #define PINS (sizeof(keyboard_pins)/sizeof(*keyboard_pins))
     
@@ -117,6 +117,7 @@ int main(void)
     
     static struct kbdstate oldstate = {};
     static struct kbdstate newstate = {};
+#endif
     
     for (;;)
     {
@@ -133,6 +134,7 @@ int main(void)
             LCD_Write("Ready");
         }
         
+    #if 0
         for (unsigned y=0; y<PINS; y++)
         {
             CyPins_SetPin(keyboard_pins[y].pin);
@@ -172,5 +174,6 @@ int main(void)
             oldstate = newstate;
             CyPins_ClearPin(LED_0);
         }
+    #endif
     }
 }
