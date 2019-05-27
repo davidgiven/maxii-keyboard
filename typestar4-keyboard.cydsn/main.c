@@ -75,6 +75,13 @@ static void LCD_Write(const char* s)
     }
 }
 
+static void print(const char* s)
+{
+    while (!USBFS_CDCIsReady())
+        ;
+    USBFS_PutString(s);
+}
+
 int main(void)
 {
     CyGlobalIntEnable; /* Enable global interrupts. */
@@ -82,43 +89,15 @@ int main(void)
 
     LCD_Init();
     
-#if 0
-    struct key
-    {
-        int pin;
-        char code;
-    };
-    
-    static const struct key keyboard_pins[] =
-    {
-        { KBD_0, 'a' },
-        { KBD_1, 'b' },
-        { KBD_2, 'c' }, // return
-        { KBD_3, 'd' },
-        { KBD_4, 'e' },
-        { KBD_5, 'f' },
-        { KBD_6, 'g' }, // always on?
-        { KBD_7, 'h' },
-        { KBD_8, 'i' },
-        { KBD_9, 'j' },
-        { KBD_10, 'k' }, // repeat
-        { KBD_11, 'l' },
-        { KBD_12, 'm' },
-        { KBD_13, 'n' },
-        { KBD_14, 'o' },
-        { KBD_15, 'p' },
-    };
-    #define PINS (sizeof(keyboard_pins)/sizeof(*keyboard_pins))
-    
     struct kbdstate
     {
-        bool pressed[PINS][PINS];
+        uint8_t modifiers;
+        uint8_t keys[8];
     };
     
     static struct kbdstate oldstate = {};
     static struct kbdstate newstate = {};
-#endif
-    
+        
     for (;;)
     {
         if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
@@ -133,60 +112,40 @@ int main(void)
             USBFS_LoadInEP(1, Keyboard_Data, 8);
             LCD_Write("Ready");
         }
+    
+        /* Probe the modifier keys. */
         
         KBDPROBE_Write(0xff);
         CyDelayUs(150); /* Time for the capacitors to charge */
-        uint8_t mods = MODIFIERS_Read();
-        LED_Write(mods);
-        KBDPROBE_Write(0x00);
-        
-        char buffer[20];
-        snprintf(buffer, sizeof(buffer), "%d\r\n", mods);
-        while (!USBFS_CDCIsReady())
-            ;
-        USBFS_PutString(buffer);
-        CyDelay(200);
+        newstate.modifiers = MODIFIERS_Read();
 
-    #if 0
-        for (unsigned y=0; y<PINS; y++)
+        /* Probe the keyboard matrix. */
+        
+        for (unsigned y=0; y<8; y++)
         {
-            CyPins_SetPin(keyboard_pins[y].pin);
-            for (unsigned x=0; x<PINS; x++)
-            {
-                if (x == y)
-                    continue;
-                
-                newstate.pressed[y][x] = CyPins_ReadPin(keyboard_pins[x].pin);
-            }
-            CyPins_ClearPin(keyboard_pins[y].pin);
+            KBDPROBE_Write(1 << y);
+            CyDelayUs(100);
+            newstate.keys[y] = KBDSENSE_Read();
         }
         
-        if (memcmp(&newstate, &oldstate, sizeof(struct kbdstate)) != 0)
+        /* Detect changes. */
+        
+        if (memcmp(&newstate, &oldstate, sizeof(newstate)) != 0)
         {
-            CyPins_SetPin(LED_0);
-            while (!USBFS_CDCIsReady())
-                ;
-            USBFS_PutString("\r\nchanged\r\n");
-            for (unsigned y=0; y<PINS; y++)
+            static char buffer[80];
+            
+            print("changed");
+            
+            snprintf(buffer, sizeof(buffer), "%x\r\n", newstate.modifiers);
+            print(buffer);
+            
+            for (unsigned y=0; y<8; y++)
             {
-                static char buffer[80];
-                char* p = buffer;
-                
-                *p++ = keyboard_pins[y].code;
-                *p++ = ':';
-                for (unsigned x=0; x<PINS; x++)
-                    *p++ = newstate.pressed[y][x] ? keyboard_pins[x].code : '.';
-                *p++ = '\n';
-                *p++ = '\r';
-                *p++ = 0;
-                while (!USBFS_CDCIsReady())
-                    ;
-                USBFS_PutString(buffer);
+                snprintf(buffer, sizeof(buffer), "%d: %x\r\n", y, newstate.keys[y]);
+                print(buffer);
             }
             
             oldstate = newstate;
-            CyPins_ClearPin(LED_0);
         }
-    #endif
     }
 }
