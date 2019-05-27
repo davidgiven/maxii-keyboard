@@ -134,6 +134,19 @@ int main(void)
             LCD_Write("Ready");
         }
         
+        KBDPROBE_Write(0xff);
+        CyDelayUs(150); /* Time for the capacitors to charge */
+        uint8_t mods = MODIFIERS_Read();
+        LED_Write(mods);
+        KBDPROBE_Write(0x00);
+        
+        char buffer[20];
+        snprintf(buffer, sizeof(buffer), "%d\r\n", mods);
+        while (!USBFS_CDCIsReady())
+            ;
+        USBFS_PutString(buffer);
+        CyDelay(200);
+
     #if 0
         for (unsigned y=0; y<PINS; y++)
         {
