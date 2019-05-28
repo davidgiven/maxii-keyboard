@@ -1,8 +1,41 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "project.h"
+#include "usbkeycodes.h"
 
-static uint8 Keyboard_Data[8] = {};
+enum
+{
+    ENDPOINT_KEYBOARD_IN = 4,
+    ENDPOINT_KEYBOARD_OUT = 5
+};
+
+enum
+{
+    MODIFIER_SHIFT = 1<<0,
+    MODIFIER_CONTROL = 1<<1,
+    MODIFIER_SPECIAL = 1<<2,
+    MODIFIER_ALT = 1<<3
+};
+
+static const uint8_t keycodes[8][8] = {
+    { KEY_J,      KEY_L,     KEY_N,           KEY_P,      KEY_I,     KEY_K,            KEY_M,     KEY_O },
+    { KEY_Z,      KEY_1,     KEY_3,           KEY_5,      KEY_Y,     KEY_0,            KEY_2,     KEY_4 },
+    { KEY_Period, KEY_Grave, KEY_Enter,       KEY_Delete, KEY_Comma, KEY_Slash,        KEY_Space, 0 },
+    { KEY_B,      KEY_D,     KEY_F,           KEY_H,      KEY_A,     KEY_C,            KEY_E,     KEY_G },
+    { KEY_R,      KEY_T,     KEY_V,           KEY_X,      KEY_Q,     KEY_S,            KEY_U,     KEY_W },
+    { KEY_7,      KEY_9,     KEY_LeftBracket, KEY_Quote,  KEY_6,     KEY_8,            KEY_Minus, KEY_Semicolon },
+    { KEY_Equals, KEY_Menu,  KEY_F7,          KEY_F3,     KEY_Tab,   KEY_RightBracket, KEY_F6,    KEY_F1 },
+    { KEY_F5,     0,         0,               0,          KEY_F4,    KEY_F2,           0,         0 },
+};
+
+struct usb_keyboard_data
+{
+    uint8_t modifiers;
+    uint8_t reserved;
+    uint8_t keys[6];
+};
+
+static struct usb_keyboard_data keyboard_state = {};
 
 static void lcd_write_byte(bool rs, uint8_t data)
 {
@@ -88,16 +121,7 @@ int main(void)
     USBFS_Start(0, USBFS_DWR_POWER_OPERATION);
 
     LCD_Init();
-    
-    struct kbdstate
-    {
-        uint8_t modifiers;
-        uint8_t keys[8];
-    };
-    
-    static struct kbdstate oldstate = {};
-    static struct kbdstate newstate = {};
-        
+            
     for (;;)
     {
         if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
@@ -108,44 +132,97 @@ int main(void)
             
             LCD_Write("Setting up USB");
             USBFS_CDC_Init();
-            USBFS_EnableOutEP(4);
-            USBFS_LoadInEP(1, Keyboard_Data, 8);
+            
+            USBFS_EnableOutEP(ENDPOINT_KEYBOARD_OUT);
+            USBFS_LoadInEP(ENDPOINT_KEYBOARD_IN, (uint8_t*) &keyboard_state, sizeof(keyboard_state));
             LCD_Write("Ready");
         }
     
-        /* Probe the modifier keys. */
+        /* Only scan the keyboard if the master is ready. */
         
-        KBDPROBE_Write(0xff);
-        CyDelayUs(150); /* Time for the capacitors to charge */
-        newstate.modifiers = MODIFIERS_Read();
+        if (USBFS_GetEPAckState(ENDPOINT_KEYBOARD_IN))
+        {            
+            /* Probe the modifier keys. */
 
-        /* Probe the keyboard matrix. */
-        
-        for (unsigned y=0; y<8; y++)
-        {
-            KBDPROBE_Write(1 << y);
-            CyDelayUs(100);
-            newstate.keys[y] = KBDSENSE_Read();
-        }
-        
-        /* Detect changes. */
-        
-        if (memcmp(&newstate, &oldstate, sizeof(newstate)) != 0)
-        {
-            static char buffer[80];
+            static struct usb_keyboard_data newstate;
             
-            print("changed");
+            KBDPROBE_Write(0xff);
+            CyDelayUs(150); /* Time for the capacitors to charge */
+            uint8_t mods = MODIFIERS_Read();
+            newstate.modifiers = 0;
+            if (mods & MODIFIER_SHIFT)
+                newstate.modifiers |= MOD_LeftShift;
+            if (mods & MODIFIER_CONTROL)
+                newstate.modifiers |= MOD_LeftControl;
+            if (mods & MODIFIER_ALT)
+                newstate.modifiers |= MOD_LeftGui;
             
-            snprintf(buffer, sizeof(buffer), "%x\r\n", newstate.modifiers);
-            print(buffer);
-            
-            for (unsigned y=0; y<8; y++)
+            /* Probe the keyboard matrix. */
+        
+            memcpy(&keyboard_state.keys, &newstate.keys, sizeof(newstate.keys));
+            for (unsigned row=0; row<8; row++)
             {
-                snprintf(buffer, sizeof(buffer), "%d: %x\r\n", y, newstate.keys[y]);
-                print(buffer);
+                KBDPROBE_Write(1 << row);
+                CyDelayUs(100);
+                uint8_t keys = KBDSENSE_Read();
+
+                for (unsigned column=0; column<8; column++)
+                {
+                    uint8_t usbkeycode = keycodes[row][column];
+                    unsigned i = 0;
+                    
+                    /* Search for the key in the set. */
+                    
+                    while (i<sizeof(newstate.keys))
+                    {
+                        if (newstate.keys[i] == usbkeycode)
+                            break;
+                        i++;
+                    }
+                    
+                    if (keys & (1<<column))
+                    {
+                        /* Pressed --- add it to the keyboard set. */
+                    
+                        if (i != sizeof(newstate.keys))
+                        {
+                            /* Already in the set, so do nothing. */
+                        }
+                        else
+                        {
+                            /* Add it. */
+                            
+                            for (unsigned i=0; i<sizeof(newstate.keys); i++)
+                            {
+                                if (newstate.keys[i] == 0)
+                                {
+                                    newstate.keys[i] = usbkeycode;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        /* Released --- remove it from the keyboard set. */
+                        
+                        if (i != sizeof(newstate.keys))
+                            newstate.keys[i] = 0;
+                    }
+                }
             }
             
-            oldstate = newstate;
+            /* Detect changes. */
+            
+            if (memcmp(&newstate, &keyboard_state, sizeof(newstate)) != 0)
+            {
+                USBFS_LoadInEP(ENDPOINT_KEYBOARD_IN, (uint8_t*) &newstate, sizeof(newstate));
+                keyboard_state = newstate;
+                
+                static int led = 0;
+                led = !led;
+                LED_Write(led);
+            }
         }
     }
 }
