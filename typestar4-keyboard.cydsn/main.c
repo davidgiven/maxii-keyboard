@@ -18,14 +18,25 @@ enum
 };
 
 static const uint8_t keycodes[8][8] = {
-    { KEY_J,      KEY_L,     KEY_N,           KEY_P,      KEY_I,     KEY_K,            KEY_M,     KEY_O },
-    { KEY_Z,      KEY_1,     KEY_3,           KEY_5,      KEY_Y,     KEY_0,            KEY_2,     KEY_4 },
-    { KEY_Period, KEY_Grave, KEY_Enter,       KEY_Delete, KEY_Comma, KEY_Slash,        KEY_Space, 0 },
-    { KEY_B,      KEY_D,     KEY_F,           KEY_H,      KEY_A,     KEY_C,            KEY_E,     KEY_G },
-    { KEY_R,      KEY_T,     KEY_V,           KEY_X,      KEY_Q,     KEY_S,            KEY_U,     KEY_W },
-    { KEY_7,      KEY_9,     KEY_LeftBracket, KEY_Quote,  KEY_6,     KEY_8,            KEY_Minus, KEY_Semicolon },
-    { KEY_Equals, KEY_Menu,  KEY_F7,          KEY_F3,     KEY_Tab,   KEY_RightBracket, KEY_F6,    KEY_F1 },
-    { KEY_F5,     0,         0,               0,          KEY_F4,    KEY_F2,           0,         0 },
+    { KEY_J,      KEY_L,      KEY_N,           KEY_P,             KEY_I,     KEY_K,            KEY_M,     KEY_O },
+    { KEY_Z,      KEY_1,      KEY_3,           KEY_5,             KEY_Y,     KEY_0,            KEY_2,     KEY_4 },
+    { KEY_Period, KEY_Escape, KEY_Enter,       KEY_Delete,        KEY_Comma, KEY_Slash,        KEY_Space, 0 },
+    { KEY_B,      KEY_D,      KEY_F,           KEY_H,             KEY_A,     KEY_C,            KEY_E,     KEY_G },
+    { KEY_R,      KEY_T,      KEY_V,           KEY_X,             KEY_Q,     KEY_S,            KEY_U,     KEY_W },
+    { KEY_7,      KEY_9,      KEY_LeftBracket, KEY_Quote,         KEY_6,     KEY_8,            KEY_Minus, KEY_Semicolon },
+    { KEY_Equals, KEY_Menu,   KEY_F7,          KEY_F3,            KEY_Tab,   KEY_RightBracket, KEY_F6,    KEY_F1 },
+    { KEY_F5,     0,          0,               0,                 KEY_F4,    KEY_F2,           0,         0 },
+};
+
+static const uint8_t special_keycodes[8][8] = {
+    { 0,          0,          0,               0,                 0,         0,                0,         0 },
+    { 0,          0,          0,               0,                 0,         0,                0,         0 },
+    { 0,          0,          0,               KEY_DeleteForward, 0,         0,                0,         0 },
+    { 0,          KEY_Right,  KEY_PageDown,    0,                 KEY_Left,  0,                KEY_End,   0 },
+    { KEY_PageUp, 0,          0,               0,                 KEY_Home,  KEY_Down,         0,         KEY_Up },
+    { 0,          0,          0,               0,                 0,         0,                0,         0 },
+    { 0,          0,          0,               0,                 0,         0,                0,         0 },
+    { 0,          0,          0,               0,                 0,         0,                0,         0 },
 };
 
 struct usb_keyboard_data
@@ -96,12 +107,12 @@ static void LCD_Write(const char* s)
     LCD_Seek(1);
     for (;;)
     {
+        char c = *s++;
+        if (!c)
+            return;
         if (pos == 8)
             LCD_Seek(0x3f);
         if (pos == 16)
-            return;
-        char c = *s++;
-        if (!c)
             return;
         LCD_WriteChar(c);
         pos++;
@@ -156,19 +167,22 @@ int main(void)
                 newstate.modifiers |= MOD_LeftControl;
             if (mods & MODIFIER_ALT)
                 newstate.modifiers |= MOD_LeftGui;
+            bool special = mods & MODIFIER_SPECIAL;
             
             /* Probe the keyboard matrix. */
         
             memcpy(&keyboard_state.keys, &newstate.keys, sizeof(newstate.keys));
+            uint8_t allkeys = 0;
             for (unsigned row=0; row<8; row++)
             {
                 KBDPROBE_Write(1 << row);
                 CyDelayUs(100);
                 uint8_t keys = KBDSENSE_Read();
+                allkeys |= keys;
 
                 for (unsigned column=0; column<8; column++)
                 {
-                    uint8_t usbkeycode = keycodes[row][column];
+                    uint8_t usbkeycode = (special ? special_keycodes : keycodes)[row][column];
                     unsigned i = 0;
                     
                     /* Search for the key in the set. */
@@ -212,6 +226,11 @@ int main(void)
                 }
             }
             
+            /* In case of bugs, check to make sure that if no keys are pressed, the set is reset. */
+            
+            if (allkeys == 0)
+                memset(newstate.keys, 0, sizeof(newstate.keys));
+            
             /* Detect changes. */
             
             if (memcmp(&newstate, &keyboard_state, sizeof(newstate)) != 0)
@@ -222,6 +241,17 @@ int main(void)
                 static int led = 0;
                 led = !led;
                 LED_Write(led);
+                
+                char buffer[30];
+                snprintf(buffer, sizeof(buffer), "%x/%x %x %x %x %x %x", keyboard_state.modifiers,
+                    keyboard_state.keys[0],
+                    keyboard_state.keys[1],
+                    keyboard_state.keys[2],
+                    keyboard_state.keys[3],
+                    keyboard_state.keys[4],
+                    keyboard_state.keys[5]);
+                LCD_Write(buffer);
+                CyDelay(10); // to prevent keybounce
             }
         }
     }
