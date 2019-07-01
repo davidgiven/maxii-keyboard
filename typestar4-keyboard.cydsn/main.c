@@ -34,9 +34,9 @@ static const uint8_t special_keycodes[8][8] = {
     { 0,          0,          0,               KEY_DeleteForward, 0,         0,                0,         0 },
     { 0,          KEY_Right,  KEY_PageDown,    0,                 KEY_Left,  0,                KEY_End,   0 },
     { KEY_PageUp, 0,          0,               0,                 KEY_Home,  KEY_Down,         0,         KEY_Up },
-    { 0,          0,          0,               0,                 0,         0,                0,         0 },
-    { 0,          0,          0,               0,                 0,         0,                0,         0 },
-    { 0,          0,          0,               0,                 0,         0,                0,         0 },
+    { 0,          0,          KEY_F14,         0,                 0,         0,                0,         0 },
+    { 0,          0,          0,               KEY_F10,           0,         0,                KEY_F13,   KEY_F8, },
+    { KEY_F12,    0,          0,               0,                 KEY_F11,   KEY_F9,           0,         0 },
 };
 
 struct usb_keyboard_data
@@ -47,6 +47,8 @@ struct usb_keyboard_data
 };
 
 static struct usb_keyboard_data keyboard_state = {};
+static char screen[16];
+static int cursor;
 
 static void lcd_write_byte(bool rs, uint8_t data)
 {
@@ -119,6 +121,61 @@ static void LCD_Write(const char* s)
     }
 }
 
+static void SCR_Clear(void)
+{
+    memset(screen, ' ', sizeof(screen));
+    cursor = 0;
+}
+
+static void SCR_Putc(char c)
+{
+    switch (c)
+    {
+        case '\n':
+            SCR_Clear();
+            break;
+            
+        case '\r':
+            cursor = 0;
+            break;
+            
+        default:
+            if (cursor == 15)
+                SCR_Clear();
+            screen[cursor++] = c;
+            break;
+    }
+}
+
+static void SCR_Flush(void)
+{
+    LCD_Clear();
+    
+    LCD_Seek(0x01);
+    for (const char* p = screen; p != (screen+7); p++)
+        LCD_WriteChar(*p);
+    
+    LCD_Seek(0x3f);
+    for (const char* p = (screen+7); p != (screen+15); p++)
+        LCD_WriteChar(*p);
+    
+    if (cursor < 7)
+        LCD_Seek(0x01 + cursor);
+    else
+        LCD_Seek(0x3f - 6 + cursor);
+}
+
+static void SCR_Print(const char* s)
+{
+    for (;;)
+    {
+        char c = *s++;
+        if (!c)
+            break;
+        SCR_Putc(c);
+    }
+}
+
 static void print(const char* s)
 {
     while (!USBFS_CDCIsReady())
@@ -146,7 +203,9 @@ int main(void)
             
             USBFS_EnableOutEP(ENDPOINT_KEYBOARD_OUT);
             USBFS_LoadInEP(ENDPOINT_KEYBOARD_IN, (uint8_t*) &keyboard_state, sizeof(keyboard_state));
-            LCD_Write("Ready");
+            SCR_Clear();
+            SCR_Print("Ready");
+            SCR_Flush();
         }
     
         /* Only scan the keyboard if the master is ready. */
@@ -241,18 +300,21 @@ int main(void)
                 static int led = 0;
                 led = !led;
                 LED_Write(led);
-                
-                char buffer[30];
-                snprintf(buffer, sizeof(buffer), "%x/%x %x %x %x %x %x", keyboard_state.modifiers,
-                    keyboard_state.keys[0],
-                    keyboard_state.keys[1],
-                    keyboard_state.keys[2],
-                    keyboard_state.keys[3],
-                    keyboard_state.keys[4],
-                    keyboard_state.keys[5]);
-                LCD_Write(buffer);
+
                 CyDelay(10); // to prevent keybounce
             }
+        }
+        
+        /* Handle the serial input. */
+
+        if (USBFS_DataIsReady())
+        {
+            while (USBFS_DataIsReady())
+            {
+                char c = USBFS_GetChar();
+                SCR_Putc(c);
+            }
+            SCR_Flush();
         }
     }
 }
