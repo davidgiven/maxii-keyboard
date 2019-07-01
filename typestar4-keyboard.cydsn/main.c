@@ -34,8 +34,8 @@ static const uint8_t special_keycodes[8][8] = {
     { 0,          0,          0,               KEY_DeleteForward, 0,         0,                0,         0 },
     { 0,          KEY_Right,  KEY_PageDown,    0,                 KEY_Left,  0,                KEY_End,   0 },
     { KEY_PageUp, 0,          0,               0,                 KEY_Home,  KEY_Down,         0,         KEY_Up },
-    { 0,          0,          KEY_F14,         0,                 0,         0,                0,         0 },
-    { 0,          0,          0,               KEY_F10,           0,         0,                KEY_F13,   KEY_F8, },
+    { 0,          0,          KEY_F14,         KEY_NonUSHash,     0,         0,                0,         0 },
+    { 0,          0,          0,               KEY_F10,           0,         KEY_Backslash,    KEY_F13,   KEY_F8, },
     { KEY_F12,    0,          0,               0,                 KEY_F11,   KEY_F9,           0,         0 },
 };
 
@@ -127,7 +127,7 @@ static void SCR_Clear(void)
     cursor = 0;
 }
 
-static void SCR_Putc(char c)
+static void SCR_PutC(char c)
 {
     switch (c)
     {
@@ -172,8 +172,14 @@ static void SCR_Print(const char* s)
         char c = *s++;
         if (!c)
             break;
-        SCR_Putc(c);
+        SCR_PutC(c);
     }
+}
+
+static void SCR_PrintN(const char* s, uint32_t n)
+{
+    while (n--)
+        SCR_PutC(*s++);
 }
 
 static void print(const char* s)
@@ -311,8 +317,9 @@ int main(void)
         {
             while (USBFS_DataIsReady())
             {
-                char c = USBFS_GetChar();
-                SCR_Putc(c);
+                char inputbuffer[64];
+                int count = USBFS_GetAll((uint8_t*) inputbuffer);
+                SCR_PrintN(inputbuffer, count);
             }
             SCR_Flush();
         }
