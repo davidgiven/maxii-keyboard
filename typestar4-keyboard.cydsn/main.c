@@ -18,25 +18,25 @@ enum
 };
 
 static const uint8_t keycodes[8][8] = {
-    { KEY_J,      KEY_L,      KEY_N,           KEY_P,             KEY_I,     KEY_K,            KEY_M,     KEY_O },
-    { KEY_Z,      KEY_1,      KEY_3,           KEY_5,             KEY_Y,     KEY_0,            KEY_2,     KEY_4 },
-    { KEY_Period, KEY_Escape, KEY_Enter,       KEY_Delete,        KEY_Comma, KEY_Slash,        KEY_Space, 0 },
-    { KEY_B,      KEY_D,      KEY_F,           KEY_H,             KEY_A,     KEY_C,            KEY_E,     KEY_G },
-    { KEY_R,      KEY_T,      KEY_V,           KEY_X,             KEY_Q,     KEY_S,            KEY_U,     KEY_W },
-    { KEY_7,      KEY_9,      KEY_LeftBracket, KEY_Quote,         KEY_6,     KEY_8,            KEY_Minus, KEY_Semicolon },
-    { KEY_Equals, KEY_Menu,   KEY_F7,          KEY_F3,            KEY_Tab,   KEY_RightBracket, KEY_F6,    KEY_F1 },
-    { KEY_F5,     0,          0,               0,                 KEY_F4,    KEY_F2,           0,         0 },
+    { KEY_J,              KEY_L,      KEY_N,           KEY_P,             KEY_I,     KEY_K,            KEY_M,     KEY_O },
+    { KEY_Z,              KEY_1,      KEY_3,           KEY_5,             KEY_Y,     KEY_0,            KEY_2,     KEY_4 },
+    { KEY_Period,         KEY_Escape, KEY_Enter,       KEY_Delete,        KEY_Comma, KEY_Slash,        KEY_Space, 0 },
+    { KEY_B,              KEY_D,      KEY_F,           KEY_H,             KEY_A,     KEY_C,            KEY_E,     KEY_G },
+    { KEY_R,              KEY_T,      KEY_V,           KEY_X,             KEY_Q,     KEY_S,            KEY_U,     KEY_W },
+    { KEY_7,              KEY_9,      KEY_LeftBracket, KEY_Quote,         KEY_6,     KEY_8,            KEY_Minus, KEY_Semicolon },
+    { KEY_Equals,         KEY_Menu,   KEY_F7,          KEY_F3,            KEY_Tab,   KEY_RightBracket, KEY_F6,    KEY_F1 },
+    { KEY_F5,             0,          0,               0,                 KEY_F4,    KEY_F2,           0,         0 },
 };
 
 static const uint8_t special_keycodes[8][8] = {
-    { 0,          0,          0,               0,                 0,         0,                0,         0 },
-    { 0,          0,          0,               0,                 0,         0,                0,         0 },
-    { 0,          0,          0,               KEY_DeleteForward, 0,         0,                0,         0 },
-    { 0,          KEY_Right,  KEY_PageDown,    0,                 KEY_Left,  0,                KEY_End,   0 },
-    { KEY_PageUp, 0,          0,               0,                 KEY_Home,  KEY_Down,         0,         KEY_Up },
-    { 0,          0,          KEY_F14,         KEY_NonUSHash,     0,         0,                0,         0 },
-    { 0,          0,          0,               KEY_F10,           0,         KEY_Backslash,    KEY_F13,   KEY_F8, },
-    { KEY_F12,    0,          0,               0,                 KEY_F11,   KEY_F9,           0,         0 },
+    { 0,                  0,          0,               0,                 0,         0,                0,         0 },
+    { KEY_Insert,         0,          0,               0,                 0,         0,                0,         0 },
+    { 0,                  0,          0,               KEY_DeleteForward, 0,         0,                0,         0 },
+    { 0,                  KEY_Right,  KEY_PageDown,    0,                 KEY_Left,  0,                KEY_End,   0 },
+    { KEY_PageUp,         0,          0,               KEY_Delete,        KEY_Home,  KEY_Down,         0,         KEY_Up },
+    { 0,                  0,          KEY_F14,         0,                 0,         0,                0,         0 },
+    { KEY_NonUSBackslash, 0,          0,               KEY_F10,           0,         KEY_NonUSHash,    KEY_F13,   KEY_F8, },
+    { KEY_F12,            0,          0,               0,                 KEY_F11,   KEY_F9,           0,         0 },
 };
 
 struct usb_keyboard_data
