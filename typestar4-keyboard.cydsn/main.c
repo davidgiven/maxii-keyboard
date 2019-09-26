@@ -201,6 +201,7 @@ int main(void)
         if (!USBFS_GetConfiguration() || USBFS_IsConfigurationChanged())
         {
             LCD_Write("Waiting for USB");
+            LED_Write(1);
             while (!USBFS_GetConfiguration())
                 ;
             
@@ -212,6 +213,7 @@ int main(void)
             SCR_Clear();
             SCR_Print("Ready");
             SCR_Flush();
+            LED_Write(0);
         }
     
         /* Only scan the keyboard if the master is ready. */
@@ -305,9 +307,9 @@ int main(void)
                 
                 static int led = 0;
                 led = !led;
-                LED_Write(led);
+                //LED_Write(led);
 
-                CyDelay(10); // to prevent keybounce
+                CyDelay(20); // to prevent keybounce
             }
         }
         
